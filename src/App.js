@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 
-// --- CONFIGURAÇÃO ---
-// A URL da API é definida pela variável de ambiente REACT_APP_BACKEND_URL.
-// Se não estiver definida, usa-se um valor padrão para desenvolvimento local.
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
-// --- ÍCONES (SVG) ---
 const PlusIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -30,7 +26,7 @@ const LogoutIcon = () => (
     </svg>
 );
 
-// --- CONTEXTO DE AUTENTICAÇÃO ---
+
 const AuthContext = createContext(null);
 
 const AuthProvider = ({ children }) => {
@@ -45,7 +41,6 @@ const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = async (email, password) => {
-    // Para OAuth2PasswordRequestForm, os dados devem ser enviados como form-data
     const formData = new URLSearchParams();
     formData.append('username', email);
     formData.append('password', password);
@@ -80,8 +75,6 @@ const AuthProvider = ({ children }) => {
 };
 
 const useAuth = () => useContext(AuthContext);
-
-// --- COMPONENTES DA UI ---
 
 const Modal = ({ children, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -186,9 +179,6 @@ const GuestItem = ({ guest, onEdit, onDelete }) => (
     </div>
 );
 
-
-// --- PÁGINAS ---
-
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -269,7 +259,7 @@ const GuestDashboard = () => {
       });
       if (!response.ok) {
         if (response.status === 401) {
-          logout(); // Token inválido ou expirado
+          logout();
         }
         throw new Error('Não foi possível carregar os convidados.');
       }
@@ -302,7 +292,6 @@ const GuestDashboard = () => {
     const url = isUpdating ? `${API_URL}/convidados/${guestData.convidado_id}` : `${API_URL}/convidados/`;
     const method = isUpdating ? 'PUT' : 'POST';
 
-    // O schema do backend espera o `convidado_id` no corpo para PUT
     const body = JSON.stringify(guestData);
 
     try {
@@ -321,7 +310,7 @@ const GuestDashboard = () => {
       }
 
       handleCloseModal();
-      fetchConvidados(); // Recarrega a lista
+      fetchConvidados();
     } catch (err) {
       alert(`Erro: ${err.message}`);
     } finally {
@@ -340,13 +329,12 @@ const GuestDashboard = () => {
           const errorData = await response.json();
           throw new Error(errorData.detail || 'Falha ao deletar convidado.');
         }
-        fetchConvidados(); // Recarrega a lista
+        fetchConvidados();
       } catch (err) {
         alert(`Erro: ${err.message}`);
       }
     }
   };
-
 
   return (
       <div className="min-h-screen bg-gray-50">
@@ -392,8 +380,6 @@ const GuestDashboard = () => {
       </div>
   );
 };
-
-// --- COMPONENTE PRINCIPAL ---
 
 export default function App() {
   return (
