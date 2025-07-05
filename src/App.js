@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 
+// --- CONFIGURAÇÃO ---
+// A URL da API é definida pela variável de ambiente REACT_APP_BACKEND_URL.
+// Se não estiver definida, usa-se um valor padrão para desenvolvimento local.
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
+// --- ÍCONES (SVG) ---
 const PlusIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -26,7 +30,7 @@ const LogoutIcon = () => (
     </svg>
 );
 
-
+// --- CONTEXTO DE AUTENTICAÇÃO ---
 const AuthContext = createContext(null);
 
 const AuthProvider = ({ children }) => {
@@ -76,6 +80,8 @@ const AuthProvider = ({ children }) => {
 
 const useAuth = () => useContext(AuthContext);
 
+// --- COMPONENTES DA UI ---
+
 const Modal = ({ children, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md relative">
@@ -89,6 +95,8 @@ const Modal = ({ children, onClose }) => (
 
 const GuestForm = ({ guest, onSave, onCancel, isLoading }) => {
   const [nome, setNome] = useState(guest?.nome || '');
+  // Este estado armazena o valor do campo "Senha", que será o ID do convidado.
+  const [convidadoIdInput, setConvidadoIdInput] = useState('');
   const [presenca, setPresenca] = useState(guest?.presenca || 'nao_confirmado');
 
   const handleSubmit = (e) => {
@@ -97,7 +105,26 @@ const GuestForm = ({ guest, onSave, onCancel, isLoading }) => {
       alert("O nome do convidado não pode estar vazio.");
       return;
     }
-    onSave({ ...guest, nome, presenca });
+
+    // Para um novo convidado, o campo de ID (rotulado como senha) é obrigatório.
+    if (!guest && !convidadoIdInput.trim()) {
+      alert("A Senha (ID do convidado) é obrigatória.");
+      return;
+    }
+
+    // Monta o objeto de dados a ser enviado.
+    const payload = {
+      ...guest,
+      nome,
+      presenca,
+    };
+
+    // Se for um novo convidado, o valor do campo "Senha" é atribuído a 'convidado_id'.
+    if (!guest) {
+      payload.convidado_id = convidadoIdInput;
+    }
+
+    onSave(payload);
   };
 
   return (
@@ -114,6 +141,23 @@ const GuestForm = ({ guest, onSave, onCancel, isLoading }) => {
               required
           />
         </div>
+
+        {/* Campo de senha/ID visível apenas ao criar um novo convidado */}
+        {!guest && (
+            <div className="mb-4">
+              <label htmlFor="senha" className="block text-gray-700 text-sm font-bold mb-2">Senha</label>
+              <input
+                  id="senha"
+                  type="text"
+                  value={convidadoIdInput}
+                  onChange={(e) => setConvidadoIdInput(e.target.value)}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-pink-400"
+                  placeholder="ID ou código único do convidado"
+                  required
+              />
+            </div>
+        )}
+
         {guest && (
             <div className="mb-6">
               <label htmlFor="presenca" className="block text-gray-700 text-sm font-bold mb-2">Status da Presença</label>
@@ -192,7 +236,6 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       await login(email, password);
-      // O App irá redirecionar automaticamente
     } catch (err) {
       setError(err.message || 'Ocorreu um erro. Verifique suas credenciais.');
     } finally {
@@ -288,8 +331,9 @@ const GuestDashboard = () => {
 
   const handleSaveGuest = async (guestData) => {
     setIsSaving(true);
-    const isUpdating = !!guestData.convidado_id;
-    const url = isUpdating ? `${API_URL}/convidados/${guestData.convidado_id}` : `${API_URL}/convidados/`;
+    // A distinção entre criar e atualizar é feita com base no estado 'editingGuest'.
+    const isUpdating = !!editingGuest;
+    const url = isUpdating ? `${API_URL}/convidados/${editingGuest.convidado_id}` : `${API_URL}/convidados/`;
     const method = isUpdating ? 'PUT' : 'POST';
 
     const body = JSON.stringify(guestData);
