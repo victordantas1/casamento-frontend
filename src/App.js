@@ -85,45 +85,52 @@ const useAuth = () => useContext(AuthContext);
 const Modal = ({ children, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md relative">
-        <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800">
-          &times;
-        </button>
+        <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
         {children}
       </div>
     </div>
 );
 
+// Componente de Modal para Alertas
+const AlertModal = ({ message, onClose }) => (
+    <Modal onClose={onClose}>
+      <h3 className="text-lg font-bold mb-4 text-gray-800">Aviso</h3>
+      <p className="mb-6 text-gray-600">{message}</p>
+      <div className="flex justify-end">
+        <button onClick={onClose} className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+          OK
+        </button>
+      </div>
+    </Modal>
+);
+
+// Componente de Modal para Confirmação
+const ConfirmationModal = ({ message, onConfirm, onCancel, isLoading }) => (
+    <Modal onClose={onCancel}>
+      <h3 className="text-lg font-bold mb-4 text-gray-800">Confirmação</h3>
+      <p className="mb-6 text-gray-600">{message}</p>
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={onCancel} disabled={isLoading} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors">
+          Cancelar
+        </button>
+        <button onClick={onConfirm} disabled={isLoading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-red-400">
+          {isLoading ? 'Confirmando...' : 'Confirmar'}
+        </button>
+      </div>
+    </Modal>
+);
+
 const GuestForm = ({ guest, onSave, onCancel, isLoading }) => {
   const [nome, setNome] = useState(guest?.nome || '');
-  // Este estado armazena o valor do campo "Senha", que será o ID do convidado.
   const [convidadoIdInput, setConvidadoIdInput] = useState('');
   const [presenca, setPresenca] = useState(guest?.presenca || 'nao_confirmado');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!nome.trim()) {
-      alert("O nome do convidado não pode estar vazio.");
-      return;
-    }
-
-    // Para um novo convidado, o campo de ID (rotulado como senha) é obrigatório.
-    if (!guest && !convidadoIdInput.trim()) {
-      alert("A Senha (ID do convidado) é obrigatória.");
-      return;
-    }
-
-    // Monta o objeto de dados a ser enviado.
-    const payload = {
-      ...guest,
-      nome,
-      presenca,
-    };
-
-    // Se for um novo convidado, o valor do campo "Senha" é atribuído a 'convidado_id'.
+    const payload = { ...guest, nome, presenca };
     if (!guest) {
       payload.convidado_id = convidadoIdInput;
     }
-
     onSave(payload);
   };
 
@@ -142,10 +149,9 @@ const GuestForm = ({ guest, onSave, onCancel, isLoading }) => {
           />
         </div>
 
-        {/* Campo de senha/ID visível apenas ao criar um novo convidado */}
         {!guest && (
             <div className="mb-4">
-              <label htmlFor="senha" className="block text-gray-700 text-sm font-bold mb-2">Senha</label>
+              <label htmlFor="senha" className="block text-gray-700 text-sm font-bold mb-2">Senha (ID do Convidado)</label>
               <input
                   id="senha"
                   type="text"
@@ -251,25 +257,11 @@ const LoginPage = () => {
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label htmlFor="email" className="text-sm font-bold text-gray-600 block">Email</label>
-              <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-2 mt-1 border rounded-md focus:border-pink-400 focus:ring focus:ring-pink-300 focus:ring-opacity-50"
-                  required
-              />
+              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2 mt-1 border rounded-md focus:border-pink-400 focus:ring focus:ring-pink-300 focus:ring-opacity-50" required />
             </div>
             <div>
               <label htmlFor="password" className="text-sm font-bold text-gray-600 block">Senha</label>
-              <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-2 mt-1 border rounded-md focus:border-pink-400 focus:ring focus:ring-pink-300 focus:ring-opacity-50"
-                  required
-              />
+              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-2 mt-1 border rounded-md focus:border-pink-400 focus:ring focus:ring-pink-300 focus:ring-opacity-50" required />
             </div>
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             <div>
@@ -291,19 +283,19 @@ const GuestDashboard = () => {
   const [editingGuest, setEditingGuest] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [alertInfo, setAlertInfo] = useState({ isOpen: false, message: '' });
+  const [confirmationInfo, setConfirmationInfo] = useState({ isOpen: false, message: '', onConfirm: () => {} });
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { token, logout } = useAuth();
 
   const fetchConvidados = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_URL}/convidados`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await fetch(`${API_URL}/convidados`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) {
-        if (response.status === 401) {
-          logout();
-        }
+        if (response.status === 401) logout();
         throw new Error('Não foi possível carregar os convidados.');
       }
       const data = await response.json();
@@ -315,9 +307,7 @@ const GuestDashboard = () => {
     }
   }, [token, logout]);
 
-  useEffect(() => {
-    fetchConvidados();
-  }, [fetchConvidados]);
+  useEffect(() => { fetchConvidados(); }, [fetchConvidados]);
 
   const handleOpenModal = (guest = null) => {
     setEditingGuest(guest);
@@ -330,53 +320,58 @@ const GuestDashboard = () => {
   };
 
   const handleSaveGuest = async (guestData) => {
+    if (!guestData.nome || !guestData.nome.trim()) {
+      setAlertInfo({ isOpen: true, message: "O nome do convidado não pode estar vazio." });
+      return;
+    }
+    if (!editingGuest && (!guestData.convidado_id || !guestData.convidado_id.trim())) {
+      setAlertInfo({ isOpen: true, message: "A Senha (ID do convidado) é obrigatória." });
+      return;
+    }
+
     setIsSaving(true);
-    // A distinção entre criar e atualizar é feita com base no estado 'editingGuest'.
     const isUpdating = !!editingGuest;
     const url = isUpdating ? `${API_URL}/convidados/${editingGuest.convidado_id}` : `${API_URL}/convidados/`;
     const method = isUpdating ? 'PUT' : 'POST';
-
     const body = JSON.stringify(guestData);
 
     try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body,
-      });
-
+      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Falha ao salvar convidado.');
       }
-
       handleCloseModal();
       fetchConvidados();
     } catch (err) {
-      alert(`Erro: ${err.message}`);
+      setAlertInfo({ isOpen: true, message: `Erro: ${err.message}` });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDeleteGuest = async (guest) => {
-    if (window.confirm(`Tem certeza que deseja remover "${guest.nome}" da lista?`)) {
-      try {
-        const response = await fetch(`${API_URL}/convidados/${guest.convidado_id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Falha ao deletar convidado.');
-        }
-        fetchConvidados();
-      } catch (err) {
-        alert(`Erro: ${err.message}`);
+  const handleDeleteGuest = (guest) => {
+    setConfirmationInfo({
+      isOpen: true,
+      message: `Tem certeza que deseja remover "${guest.nome}" da lista?`,
+      onConfirm: () => performDeletion(guest.convidado_id),
+    });
+  };
+
+  const performDeletion = async (guestId) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/convidados/${guestId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Falha ao deletar convidado.');
       }
+      fetchConvidados();
+    } catch (err) {
+      setAlertInfo({ isOpen: true, message: `Erro: ${err.message}` });
+    } finally {
+      setConfirmationInfo({ isOpen: false, message: '', onConfirm: () => {} });
+      setIsDeleting(false);
     }
   };
 
@@ -386,8 +381,7 @@ const GuestDashboard = () => {
           <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">Lista de Convidados</h1>
             <button onClick={logout} className="flex items-center gap-2 text-gray-500 hover:text-pink-600 font-medium transition-colors">
-              <LogoutIcon/>
-              Sair
+              <LogoutIcon/> Sair
             </button>
           </div>
         </header>
@@ -395,19 +389,16 @@ const GuestDashboard = () => {
           <div className="px-4 py-6 sm:px-0">
             <div className="mb-4 flex justify-end">
               <button onClick={() => handleOpenModal()} className="inline-flex items-center gap-2 bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all">
-                <PlusIcon />
-                Adicionar Convidado
+                <PlusIcon /> Adicionar Convidado
               </button>
             </div>
-
             {isLoading && <p className="text-center text-gray-500">Carregando convidados...</p>}
             {error && <p className="text-center text-red-500">{error}</p>}
-
             {!isLoading && !error && (
                 <div className="space-y-4">
                   {convidados.length > 0 ? (
                       convidados.map(guest => (
-                          <GuestItem key={guest.convidado_id} guest={guest} onEdit={handleOpenModal} onDelete={handleDeleteGuest} />
+                          <GuestItem key={guest.convidado_id} guest={guest} onEdit={handleOpenModal} onDelete={() => handleDeleteGuest(guest)} />
                       ))
                   ) : (
                       <p className="text-center text-gray-500 mt-8">Nenhum convidado na lista ainda.</p>
@@ -420,6 +411,20 @@ const GuestDashboard = () => {
             <Modal onClose={handleCloseModal}>
               <GuestForm guest={editingGuest} onSave={handleSaveGuest} onCancel={handleCloseModal} isLoading={isSaving} />
             </Modal>
+        )}
+        {alertInfo.isOpen && (
+            <AlertModal
+                message={alertInfo.message}
+                onClose={() => setAlertInfo({ isOpen: false, message: '' })}
+            />
+        )}
+        {confirmationInfo.isOpen && (
+            <ConfirmationModal
+                message={confirmationInfo.message}
+                onConfirm={confirmationInfo.onConfirm}
+                onCancel={() => setConfirmationInfo({ isOpen: false, message: '', onConfirm: () => {} })}
+                isLoading={isDeleting}
+            />
         )}
       </div>
   );
